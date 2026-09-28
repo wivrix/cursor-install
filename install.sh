@@ -108,17 +108,29 @@ set -eu
 
 AGENT="${HOME}/.local/bin/agent"
 
+resolve_path() {
+  if command -v readlink >/dev/null 2>&1; then
+    readlink -f "$1" 2>/dev/null && return 0
+  fi
+  printf '%s\n' "$1"
+}
+
 find_ide_cursor() {
+  self=$(resolve_path "$0")
+  launcher=$(resolve_path "${HOME}/.local/bin/cursor")
   old_IFS=$IFS
   IFS=:
   for dir in $PATH; do
     [ -n "$dir" ] || continue
     cursor_path="$dir/cursor"
-    if [ "$cursor_path" != "$HOME/.local/bin/cursor" ] && [ -x "$cursor_path" ]; then
-      IFS=$old_IFS
-      printf '%s\n' "$cursor_path"
-      return 0
+    [ -x "$cursor_path" ] || continue
+    resolved=$(resolve_path "$cursor_path")
+    if [ "$resolved" = "$self" ] || [ "$resolved" = "$launcher" ]; then
+      continue
     fi
+    IFS=$old_IFS
+    printf '%s\n' "$cursor_path"
+    return 0
   done
   IFS=$old_IFS
   return 1
@@ -144,6 +156,39 @@ exec "$AGENT" "$@"
 EOF
   chmod 755 "$LAUNCHER"
   log "set start command: cursor -> agent"
+}
+
+# ~/.local/bin is not on a root shell's PATH until bashrc is re-read.
+# Linking into /usr/local/bin makes `agent` and `cursor` work in this shell.
+link_into_default_path() {
+  local dest_dir="${CURSOR_INSTALL_LINK_DIR:-/usr/local/bin}"
+  local name src dest
+
+  if [ ! -d "$dest_dir" ]; then
+    if [ "$(id -u)" -eq 0 ]; then
+      mkdir -p "$dest_dir"
+    else
+      return 0
+    fi
+  fi
+  if [ ! -w "$dest_dir" ]; then
+    log "${dest_dir} is not writable; commands stay in ${CURSOR_BIN_DIR}"
+    return 0
+  fi
+
+  for name in agent cursor cursor-agent; do
+    src="${CURSOR_BIN_DIR}/${name}"
+    if [ ! -e "$src" ] && [ ! -L "$src" ]; then
+      continue
+    fi
+    dest="${dest_dir}/${name}"
+    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+      log "leaving existing file ${dest} in place"
+      continue
+    fi
+    ln -sfn "$src" "$dest"
+    log "linked ${dest} -> ${src}"
+  done
 }
 
 # Run Everything, same as this machine's approvalMode "unrestricted".
@@ -226,23 +271,43 @@ main() {
   need_cmd curl
   install_cli
   write_launcher
+  link_into_default_path
   configure_shells
   configure_cli
 
   export PATH="${CURSOR_BIN_DIR}:${PATH}"
   log "installed: $("${AGENT_BIN}" --version)"
-  cat <<EOF
+
+  if command -v agent >/dev/null 2>&1; then
+    cat <<EOF
 
 Cursor is installed.
   cursor              start the agent
   agent               same agent binary
   approval mode       Run Everything (unrestricted)
 
-Open a new shell so PATH is picked up, then sign in once:
+Sign in once:
 
   agent login
 
 EOF
+  else
+    cat <<EOF
+
+Cursor is installed.
+  cursor              start the agent
+  agent               same agent binary
+  approval mode       Run Everything (unrestricted)
+
+This shell was started before ~/.local/bin was added to PATH. Run:
+
+  export PATH="\$HOME/.local/bin:\$PATH"
+  agent login
+
+EOF
+  fi
 }
 
-main "$@"
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

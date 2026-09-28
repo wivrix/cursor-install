@@ -6,6 +6,7 @@ Install the Cursor CLI on a new machine and configure it in one command:
 - `cursor` starts the agent (no IDE install required)
 - approval mode is **Run Everything** (`unrestricted`, the same as `--yolo`)
 - adds `~/.local/bin` to your shell startup files (`~/.bashrc`, `~/.profile`, and `~/.zshrc` when you use zsh)
+- when `/usr/local/bin` is writable (including root), links `agent` and `cursor` there so the current shell can run them immediately
 
 ## Install
 
@@ -13,9 +14,16 @@ Install the Cursor CLI on a new machine and configure it in one command:
 curl -fsSL https://raw.githubusercontent.com/wivrix/cursor-install/main/install.sh | bash
 ```
 
-Open a new terminal, then sign in once:
+Sign in once:
 
 ```bash
+agent login
+```
+
+If that shell was already open and `agent` is still not found, either run the installer again or load the new PATH:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
 agent login
 ```
 
@@ -35,6 +43,7 @@ cursor
 | Start command | `~/.local/bin/cursor` launches the agent |
 | Approval mode | Run Everything (`approvalMode: unrestricted` in `~/.cursor/cli-config.json`) |
 | Shell | `~/.local/bin` on `PATH` in bash and, when present, zsh |
+| Default PATH | `agent` and `cursor` linked into `/usr/local/bin` when that directory is writable |
 
 The script does not copy API keys or account data. Sign-in stays on the new machine (`agent login`).
 
