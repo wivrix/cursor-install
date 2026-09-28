@@ -308,6 +308,11 @@ EOF
   fi
 }
 
-if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+# curl | bash reads this script from stdin. BASH_SOURCE is unset then, and
+# set -u would abort before main. A sourced file has a different $0.
+set +u
+_cursor_install_source=${BASH_SOURCE[0]}
+set -u
+if [ -z "${_cursor_install_source}" ] || [ "${_cursor_install_source}" = "$0" ]; then
   main "$@"
 fi
