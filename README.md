@@ -11,7 +11,7 @@ Install the Cursor CLI on a new machine and configure it in one command:
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wivrix/cursor-install/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wivrix/cursor-install/main/install-now.sh | bash
 ```
 
 Sign in once:
